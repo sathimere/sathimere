@@ -29,14 +29,29 @@ body { font-family: Arial; background: #ffe4f0; margin: 0; padding: 0; overflow:
     align-items: center;
 }
 
+.header-title { 
+    text-align: center; 
+    flex: 1; 
+    font-size: 22px; 
+    font-weight: bold; 
+    color: white;
+}
+
 .wallet-info {
     display: flex;
     align-items: center;
     gap: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
 }
 
-.wallet-info span { font-size: 20px; font-weight: bold; }
-.wallet-info img { width: 25px; height: 25px; cursor: pointer; }
+.wallet-info img { 
+    width: 28px; 
+    height: 28px; 
+    cursor: pointer; 
+    filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(93deg) brightness(105%) contrast(105%);
+}
 
 .menu-btn { position: absolute; left: 15px; top: 14px; font-size: 25px; color: white; cursor: pointer; }
 
@@ -152,11 +167,12 @@ body { font-family: Arial; background: #ffe4f0; margin: 0; padding: 0; overflow:
 <div class="header">
 <span class="menu-btn" onclick="openMenu()">☰</span>
 
+<div class="header-title">Sathi Mere</div>
+
 <div class="wallet-info">
   <span>₹ <span id="walletBalance">0</span></span>
   <img src="https://i.imgur.com/3y3GdFm.png" alt="Recharge" onclick="location.href='wallet.html'">
 </div>
-
 </div>
 
 <input id="searchInput" class="search-box" placeholder="Search by name..." onkeyup="searchUser()">
@@ -210,15 +226,13 @@ async function loadWallet(uid){
     document.getElementById("walletBalance").innerText = bal;
 }
 
-/* ===================== Users Load ===================== */
+/* Users Load */
 async function loadUsers(myId) {
     const list = document.getElementById("userList");
     list.innerHTML = "Loading...";
-
     let me = await db.collection("users").doc(myId).get();
     let myGender = me.data().gender;
     let opposite = myGender === "Male" ? "Female" : "Male";
-
     db.collection("users").where("gender","==",opposite)
     .onSnapshot(async snap=>{
         list.innerHTML="";
@@ -232,27 +246,23 @@ async function loadUsers(myId) {
     });
 }
 
-/* ===================== Unread Count ===================== */
+/* Unread Count */
 async function updateUnread(myId){
     const chatsSnap = await db.collection("chatRequests")
         .where("status","==","accepted")
         .get();
-
     let unreadTotal = 0;
     for(let doc of chatsSnap.docs){
         const data = doc.data();
         const fromId = data.from;
         const toId = data.to;
         const chatID = fromId < toId ? fromId+"_"+toId : toId+"_"+fromId;
-
         const messagesSnap = await db.collection("chats").doc(chatID).collection("messages")
             .where("to","==",myId)
             .where("seen","==",false)
             .get();
-
         unreadTotal += messagesSnap.size;
     }
-
     const badge = document.getElementById("unreadCount");
     if(unreadTotal>0){
         badge.style.display="block";
@@ -260,15 +270,13 @@ async function updateUnread(myId){
     } else {
         badge.style.display="none";
     }
-
     setTimeout(()=>updateUnread(myId),3000);
 }
 
-/* ===================== Render Users ===================== */
+/* Render Users */
 async function renderUsers(users, myId) {
     const list = document.getElementById("userList");
     list.innerHTML="";
-
     for(let u of users){
         let uid = u.uid;
         const card = document.createElement("div");
@@ -315,21 +323,18 @@ async function renderUsers(users, myId) {
     }
 }
 
-/* ===================== Like System ===================== */
+/* Like System */
 async function toggleLike(uid,name,photo){
     let myId = auth.currentUser.uid;
     let btn = document.getElementById("like_" + uid);
-
     let exists = await db.collection("likes")
         .where("from","==",myId)
         .where("to","==",uid)
         .get();
-
     if(!exists.empty){
         btn.innerHTML="❤️ Liked";
         return;
     }
-
     await db.collection("likes").add({
         from: myId,
         to: uid,
@@ -337,7 +342,6 @@ async function toggleLike(uid,name,photo){
         photo: photo,
         time: Date.now()
     });
-
     btn.innerHTML="❤️ Liked";
     document.getElementById("navHeart").innerHTML="❤️";
 }
@@ -354,11 +358,10 @@ function viewProfile(uid){
     window.location="view-profile.html?id="+uid;
 }
 
-/* ===================== Status Check ===================== */
+/* Status Check */
 async function checkStatus(myId,otherId){
     let btn=document.getElementById("btn_"+otherId);
     let doc=await db.collection("chatRequests").doc(myId+"_"+otherId).get();
-
     if(doc.exists){
         let status=doc.data().status;
         if(status==="pending"){
@@ -373,11 +376,10 @@ async function checkStatus(myId,otherId){
     }
 }
 
-/* ===================== Chat Request ===================== */
+/* Chat Request */
 async function sendRequest(myId,toId,otherGender){
     let me = await db.collection("users").doc(myId).get();
     let myGender = me.data().gender;
-
     if(myGender==="Female"){
         await db.collection("chatRequests").doc(myId+"_"+toId).set({
             from: myId,
@@ -390,19 +392,15 @@ async function sendRequest(myId,toId,otherGender){
         checkStatus(myId,toId);
         return;
     }
-
     let wallet = await db.collection("wallets").doc(myId).get();
     let balance = wallet.exists ? wallet.data().balance : 0;
-
     if(balance < 10){
         alert("Insufficient balance! Please add money.");
         return;
     }
-
     await db.collection("wallets").doc(myId).update({
         balance: balance - 10
     });
-
     await db.collection("chatRequests").doc(myId+"_"+toId).set({
         from: myId,
         to: toId,
@@ -410,19 +408,17 @@ async function sendRequest(myId,toId,otherGender){
         timestamp: Date.now(),
         paidBy: "Male"
     });
-
     await db.collection("history").add({
         uid: myId,
         amount: -10,
         type: "Chat Request",
         time: new Date()
     });
-
     alert("Chat request sent! ₹10 deducted.");
     checkStatus(myId,toId);
 }
 
-/* ===================== Logout ===================== */
+/* Logout */
 function logout(){
     auth.signOut().then(()=>{window.location="login.html"});
 }
