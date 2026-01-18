@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Wallet Manager</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
+
+<style>
+body{
+  font-family: Arial;
+  background:#ffe4f0;
+  padding:15px;
+  margin:0;
+}
+
+.topbar{
+  background:#ff1493;
+  padding:12px;
+  color:white;
+  font-size:20px;
+  text-align:center;
+  border-radius:10px;
+  margin-bottom:15px;
+  position:relative;
+}
+
+.back-btn{
+  position:absolute;
+  left:10px;
+  top:8px;
+  background:white;
+  color:#ff1493;
+  border:none;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.search{
+  width:100%;
+  padding:12px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  margin-bottom:10px;
+}
+
+.list{
+  background:white;
+  padding:10px;
+  border-radius:10px;
+  height:350px;
+  overflow-y:auto;
+  box-shadow:0 0 10px #ff9ac7;
+}
+
+.user-row{
+  padding:10px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+}
+
+.user-row:hover{
+  background:#ffe4f0;
+}
+
+.box{
+  background:white;
+  padding:15px;
+  border-radius:10px;
+  box-shadow:0 0 10px #ff9ac7;
+  margin-top:15px;
+}
+
+.input{
+  width:100%;
+  padding:12px;
+  border:1px solid #ccc;
+  border-radius:8px;
+  margin-bottom:10px;
+}
+
+.btn{
+  width:100%;
+  padding:12px;
+  background:#ff1493;
+  color:white;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  margin-top:10px;
+  font-size:16px;
+}
+
+.btn-green{
+  background:#00b33c;
+}
+
+.btn-red{
+  background:#ff0033;
+}
+</style>
+
+</head>
+<body>
+
+<div class="topbar">
+  Wallet Manager
+  <button class="back-btn" onclick="goBack()">Back</button>
+</div>
+
+<input id="search" class="search" placeholder="Search user by name/email..." oninput="filterUsers()">
+
+<div id="userList" class="list">
+  Loading users...
+</div>
+
+<div id="walletBox" class="box" style="display:none;">
+  <h3>User Wallet</h3>
+  <b>Name:</b> <span id="w_name"></span><br>
+  <b>Email:</b> <span id="w_email"></span><br>
+  <b>UID:</b> <span id="w_uid"></span><br>
+  <b>Current Wallet:</b> ₹<span id="w_balance">0</span><br><br>
+
+  <input id="amount" class="input" placeholder="Enter Amount">
+
+  <button class="btn btn-green" onclick="addMoney()">Add Money</button>
+  <button class="btn btn-red" onclick="deductMoney()">Deduct Money</button>
+</div>
+
+<script>
+
+function goBack(){
+  window.location="admin.html";
+}
+
+let allUsers = [];
+let selectedUID = "";
+
+/* ---------------- LOAD ALL USERS ---------------- */
+async function loadUsers(){
+  const div = document.getElementById("userList");
+  div.innerHTML = "Loading...";
+
+  const snap = await db.collection("users").get();
+
+  allUsers = [];
+  snap.forEach(d=>{
+    let u = d.data();
+    allUsers.push({
+      uid: d.id,
+      name: u.name || "",
+      email: u.email || ""
+    });
+  });
+
+  renderUsers(allUsers);
+}
+
+function renderUsers(list){
+  const div = document.getElementById("userList");
+  div.innerHTML = "";
+
+  list.forEach(u=>{
+    let row = document.createElement("div");
+    row.className = "user-row";
+    row.innerHTML = `<b>${u.name}</b><br><small>${u.email}</small>`;
+    row.onclick = ()=> openWallet(u.uid);
+    div.appendChild(row);
+  });
+
+  if(list.length === 0){
+    div.innerHTML = "<p style='text-align:center;color:gray;'>No users found</p>";
+  }
+}
+
+function filterUsers(){
+  let text = search.value.toLowerCase();
+
+  let filtered = allUsers.filter(u =>
+    (u.name || "").toLowerCase().includes(text) ||
+    (u.email || "").toLowerCase().includes(text)
+  );
+
+  renderUsers(filtered);
+}
+
+/* ---------------- OPEN WALLET ---------------- */
+async function openWallet(uid){
+  selectedUID = uid;
+
+  const userDoc = await db.collection("users").doc(uid).get();
+  const walletDoc = await db.collection("wallets").doc(uid).get();
+
+  let u = userDoc.data();
+  let balance = walletDoc.exists ? walletDoc.data().balance : 0;
+
+  document.getElementById("w_name").innerText = u.name || "";
+  document.getElementById("w_email").innerText = u.email || "";
+  document.getElementById("w_uid").innerText = uid;
+  document.getElementById("w_balance").innerText = balance;
+
+  document.getElementById("walletBox").style.display = "block";
+}
+
+/* ---------------- ADD MONEY ---------------- */
+async function addMoney(){
+  let amt = Number(amount.value);
+  if(isNaN(amt) || amt <= 0){
+    alert("Enter valid amount");
+    return;
+  }
+
+  let walletDoc = await db.collection("wallets").doc(selectedUID).get();
+  let current = walletDoc.exists ? walletDoc.data().balance : 0;
+
+  let newBal = current + amt;
+
+  await db.collection("wallets").doc(selectedUID).set({balance:newBal},{merge:true});
+
+  alert("₹"+amt+" added!");
+  document.getElementById("w_balance").innerText = newBal;
+}
+
+/* ---------------- DEDUCT MONEY ---------------- */
+async function deductMoney(){
+  let amt = Number(amount.value);
+  if(isNaN(amt) || amt <= 0){
+    alert("Enter valid amount");
+    return;
+  }
+
+  let walletDoc = await db.collection("wallets").doc(selectedUID).get();
+  let current = walletDoc.exists ? walletDoc.data().balance : 0;
+
+  if(amt > current){
+    alert("Insufficient balance");
+    return;
+  }
+
+  let newBal = current - amt;
+
+  await db.collection("wallets").doc(selectedUID).set({balance:newBal},{merge:true});
+
+  alert("₹"+amt+" deducted!");
+  document.getElementById("w_balance").innerText = newBal;
+}
+
+/* Load users on start */
+loadUsers();
+
+</script>
+
+</body>
+  </html>
