@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Help Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial;
+  background: #ffe6f2;
+  margin: 0;
+  padding: 0;
+}
+.container {
+  width: 90%;
+  max-width: 500px;
+  background: white;
+  margin: 25px auto;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 0 10px #ff99cc;
+}
+h2 {
+  text-align: center;
+  color: #ff4da6;
+}
+.card {
+  background:#fff0f7;
+  padding:15px;
+  margin-top:20px;
+  border-radius:10px;
+  border-left:4px solid #ff4da6;
+}
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #ff80bf;
+  border-radius: 10px;
+  background:#fff5fa;
+  margin-top:10px;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  background: #ff4da6;
+  color:white;
+  font-size: 17px;
+  border-radius: 10px;
+  border:none;
+  margin-top: 10px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Admin - Help Requests</h2>
+
+  <div id="requestList">Loading...</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<script>
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyCNujpIBIvJXMk34yQF1VeuTVFi5M7vdc0",
+  authDomain: "sathimere-415fa.firebaseapp.com",
+  databaseURL: "https://sathimere-415fa-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sathimere-415fa",
+  storageBucket: "sathimere-415fa.firebasestorage.app",
+  messagingSenderId: "290492321074",
+  appId: "1:290492321074:web:05aa3d9abc2d3ab7635b2b"
+};
+
+firebase.initializeApp(firebaseConfig);
+let db = firebase.database();
+
+db.ref("HelpRequests").on("value", function(snapshot) {
+  let data = snapshot.val();
+  let box = document.getElementById("requestList");
+  box.innerHTML = "";
+
+  if (!data) {
+    box.innerHTML = "No requests found.";
+    return;
+  }
+
+  Object.keys(data).reverse().forEach(id => {
+    let req = data[id];
+    box.innerHTML += `
+      <div class="card">
+        <b>User:</b> ${req.username}<br>
+        <b>Message:</b> ${req.message}<br><br>
+        <textarea id="reply_${id}" placeholder="Type admin reply...">${req.reply}</textarea>
+        <button onclick="sendReply('${id}')">Send Reply</button>
+      </div>
+    `;
+  });
+});
+
+function sendReply(id) {
+  let replyText = document.getElementById("reply_" + id).value;
+
+  db.ref("HelpRequests/" + id).update({
+    reply: replyText
+  });
+
+  alert("Reply sent!");
+}
+</script>
+
+</body>
+</html>
