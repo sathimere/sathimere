@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Social Links – SathiMere</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+body{
+  margin:0;
+  background:#fdfdfd;
+  font-family: 'Poppins', sans-serif;
+}
+
+.header{
+  background: linear-gradient(45deg,#ff4da6,#ff0066);
+  color:white;
+  text-align:center;
+  padding:18px;
+  font-size:24px;
+  font-weight:700;
+}
+
+.container{
+  width:90%;
+  margin:25px auto;
+}
+
+.card{
+  background:white;
+  padding:20px;
+  margin-top:15px;
+  border-radius:18px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.card:hover{
+  transform:scale(1.02);
+  box-shadow:0 6px 20px rgba(0,0,0,0.1);
+}
+
+.icon{
+  font-size:40px;
+  margin-right:20px;
+}
+
+.ig{ color:#d62976; }
+.fb{ color:#1877f2; }
+
+.title{
+  font-size:20px;
+  font-weight:600;
+}
+
+.subtitle{
+  font-size:14px;
+  color:#777;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">Follow Us</div>
+
+<div class="container">
+
+  <!-- Instagram -->
+  <div class="card" onclick="openInstagram()">
+    <i class="fa-brands fa-instagram icon ig"></i>
+    <div>
+      <div class="title">Instagram</div>
+      <div class="subtitle">@sath.partner.ap</div>
+    </div>
+  </div>
+
+  <!-- Facebook -->
+  <div class="card" onclick="openFacebook()">
+    <i class="fa-brands fa-facebook icon fb"></i>
+    <div>
+      <div class="title">Facebook</div>
+      <div class="subtitle">Click to open page</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function openInstagram(){
+  const appLink = "instagram://user?username=sath.partner.ap";
+  const webLink = "https://www.instagram.com/sath.partner.ap?igsh=MTVzMDZjYnVkdGdyZw==";
+  openApp(appLink, webLink);
+}
+
+function openFacebook(){
+  const appLink = "fb://page/?id=1Co6vDHpcn";
+  const webLink = "https://www.facebook.com/share/1Co6vDHpcn/";
+  openApp(appLink, webLink);
+}
+
+function openApp(app, web){
+  let now = Date.now();
+  window.location = app;
+
+  setTimeout(()=>{
+    if(Date.now() - now < 900){
+      window.location = web;
+    }
+  },700);
+}
+</script>
+
+</body>
+  </html>
