@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sathi Mere - View Profile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
+
+<style>
+body { font-family: Arial; background: #ffe4f0; margin: 0; padding: 0; }
+.header { background: #ff1493; padding: 15px; color: white; text-align: center; font-size: 22px; font-weight: bold; position: fixed; top: 0; width: 100%; }
+.back-btn { position: absolute; left: 15px; top: 14px; font-size: 25px; color: white; cursor: pointer; }
+.logout-btn { position: absolute; right: 15px; top: 10px; background: white; color: #ff1493; border: 2px solid #ff1493; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+.container { padding: 80px 15px 80px; text-align: center; }
+.profile-img { width: 100%; max-width: 400px; height: auto; border-radius: 15px; object-fit: cover; border: 4px solid #ff1493; margin-bottom: 15px; }
+.name { font-weight: bold; font-size: 22px; color: #ff1493; margin-bottom: 5px; }
+.info { font-size: 16px; color: gray; margin-bottom: 8px; }
+.btn { background: #ff1493; color: white; border: none; border-radius: 8px; padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
+.btn-disabled { background: gray; }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <span class="back-btn" onclick="history.back()">←</span>
+    Profile
+    <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<div class="container" id="profileContainer">
+    Loading profile...
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const profileId = params.get("id");
+
+auth.onAuthStateChanged(async (user)=>{
+    if(!user) return window.location="login.html";
+    loadProfile(user.uid);
+});
+
+async function loadProfile(myId){
+    const container=document.getElementById("profileContainer");
+
+    if(!profileId){
+        container.innerHTML="<p style='color:red'>No profile selected.</p>";
+        return;
+    }
+
+    const doc=await db.collection("users").doc(profileId).get();
+    if(!doc.exists){
+        container.innerHTML="<p style='color:red'>Profile not found.</p>";
+        return;
+    }
+
+    const u=doc.data();
+
+    container.innerHTML=`
+        <img class="profile-img" src="${u.photo || 'https://i.imgur.com/6VBx3io.png'}">
+        <div class="name">${u.name}</div>
+        <div class="info">Gender: ${u.gender || '-'}</div>
+        <div class="info">Age: ${u.age || '-'}</div>
+        <div class="info">City: ${u.city || '-'}</div>
+        <div class="info">State: ${u.state || '-'}</div>
+        <button id="likeBtn" class="btn">💜 Like</button>
+        <button id="chatBtn" class="btn">Chat Request</button>
+    `;
+
+    // Like check
+    const likeSnap = await db.collection("likes")
+        .where("from", "==", myId)
+        .where("to", "==", profileId)
+        .get();
+    if(!likeSnap.empty){
+        const btn=document.getElementById("likeBtn");
+        btn.innerText="Liked 💜";
+        btn.disabled=true;
+        btn.classList.add("btn-disabled");
+    }
+
+    document.getElementById("likeBtn").onclick = async ()=>{
+        await db.collection("likes").add({
+            from: myId,
+            to: profileId,
+            time: Date.now()
+        });
+        alert("Liked!");
+        const btn=document.getElementById("likeBtn");
+        btn.innerText="Liked 💜";
+        btn.disabled=true;
+        btn.classList.add("btn-disabled");
+    };
+
+    // Chat request logic
+    const chatBtn = document.getElementById("chatBtn");
+    const chatDocId = myId + "_" + profileId;
+    const chatDoc = await db.collection("chatRequests").doc(chatDocId).get();
+
+    if(chatDoc.exists){
+        const status = chatDoc.data().status;
+        if(status === "pending"){
+            chatBtn.innerText = "Request Sent";
+            chatBtn.disabled = true;
+            chatBtn.classList.add("btn-disabled");
+        }
+        if(status === "accepted"){
+            chatBtn.innerText = "Chat Now";
+            chatBtn.onclick = ()=> window.location = "chat-room.html?chatId="+chatDocId;
+        }
+    }
+
+    chatBtn.onclick = async ()=>{
+        const me = await db.collection("users").doc(myId).get();
+        const myGender = me.data().gender;
+
+        // FEMALE → FREE
+        if(myGender === "Female"){
+            await db.collection("chatRequests").doc(chatDocId).set({
+                from: myId,
+                to: profileId,
+                status: "pending",
+                timestamp: Date.now(),
+                paidBy:"Male"
+            });
+            alert("Chat request sent! (Female = Free)");
+            chatBtn.innerText="Request Sent";
+            chatBtn.disabled=true;
+            chatBtn.classList.add("btn-disabled");
+            return;
+        }
+
+        // MALE → deduct ₹10 from wallets
+        let wallet = await db.collection("wallets").doc(myId).get();
+        let balance = wallet.exists ? wallet.data().balance : 0;
+
+        if(balance < 10){
+            alert("Insufficient balance! Please add money.");
+            return;
+        }
+
+        await db.collection("wallets").doc(myId).update({
+            balance: balance - 10
+        });
+
+        await db.collection("chatRequests").doc(chatDocId).set({
+            from: myId,
+            to: profileId,
+            status: "pending",
+            timestamp: Date.now(),
+            paidBy:"Male"
+        });
+
+        await db.collection("history").add({
+            uid: myId,
+            amount:-10,
+            type:"Chat Request",
+            time:new Date()
+        });
+
+        alert("Chat request sent! ₹10 deducted.");
+        chatBtn.innerText="Request Sent";
+        chatBtn.disabled=true;
+        chatBtn.classList.add("btn-disabled");
+    };
+}
+
+function logout(){
+    auth.signOut().then(()=>window.location="login.html");
+}
+</script>
+
+</body>
+</html>
