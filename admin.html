@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Panel - Sathi Mere</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
+
+<style>
+body{
+  font-family: Arial;
+  background:#ffe4f0;
+  padding:15px;
+}
+
+.topbar{
+  background:#ff1493;
+  padding:12px;
+  color:white;
+  font-size:20px;
+  text-align:center;
+  border-radius:10px;
+  margin-bottom:15px;
+  position:relative;
+}
+
+.logout-btn{
+  position:absolute;
+  right:10px;
+  top:8px;
+  background:white;
+  color:#ff1493;
+  border:none;
+  font-size:14px;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.wallet-btn{
+  margin-top:10px;
+  width:100%;
+  padding:12px;
+  background:#ff0066;
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.search-box{
+  width:100%;
+  padding:12px;
+  border:1px solid #ccc;
+  border-radius:8px;
+  margin-bottom:10px;
+}
+
+.user-list{
+  max-height:70vh;
+  overflow-y:auto;
+  background:white;
+  padding:10px;
+  border-radius:10px;
+  box-shadow:0 0 10px #ff9ac7;
+}
+
+.user-box{
+  padding:12px;
+  border-bottom:1px solid #eee;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.btn{
+  background:#ff1493;
+  color:white;
+  border:none;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  margin-left:5px;
+}
+
+.help-btn{
+  margin-top:15px;
+  width:100%;
+  padding:12px;
+  background:#ff1493;
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.modal{
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.6);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
+
+.modal-content{
+  background:white;
+  padding:20px;
+  width:90%;
+  max-width:400px;
+  border-radius:10px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="topbar">
+  Admin Panel
+  <button class="logout-btn" onclick="adminLogout()">Logout</button>
+</div>
+
+<button class="wallet-btn" onclick="goWallet()">Wallet Manager</button>
+
+<input id="search" onkeyup="filterUsers()" class="search-box" placeholder="Search users...">
+
+<div class="user-list" id="userList">Loading users...</div>
+
+<button class="help-btn" onclick="goHelp()">Help & Support</button>
+
+<div id="modal" class="modal">
+  <div class="modal-content" id="modalContent"></div>
+</div>
+
+<script>
+
+/* ---------------- ADMIN LOGIN CHECK ---------------- */
+auth.onAuthStateChanged((user)=>{
+   if(!user){
+     window.location="login.html";
+     return;
+   }
+
+   if(user.email !== "sathimere.admin@gmail.com"){
+     alert("Access Denied!");
+     auth.signOut();
+     return;
+   }
+
+   loadUsers();
+});
+
+/* ---------------- LOGOUT ---------------- */
+function adminLogout(){
+  auth.signOut().then(()=>{
+    window.location="login.html";
+  });
+}
+
+/* ---------------- WALLET REDIRECT ---------------- */
+function goWallet(){
+  window.location = "wallet-admin.html";
+}
+
+/* ---------------- LOAD USERS ---------------- */
+function loadUsers(){
+  db.collection("users")
+  .orderBy("name", "asc")
+  .onSnapshot(res=>{
+
+    let html = "";
+    res.forEach(doc=>{
+      let u = doc.data();
+
+      html += `
+        <div class="user-box">
+          <div>
+            <b>${u.name || ""} ${u.surname || ""}</b><br>
+            <small>${u.email || ""}</small>
+          </div>
+
+          <div>
+            <button class="btn" onclick="viewProfile('${doc.id}')">View</button>
+            <button class="btn" onclick="deleteUser('${doc.id}')">Delete</button>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById("userList").innerHTML = html;
+  });
+}
+
+/* ---------------- FULL PROFILE VIEW ---------------- */
+async function viewProfile(uid){
+  let d = await db.collection("users").doc(uid).get();
+  if(!d.exists) return;
+
+  let u = d.data();
+
+  document.getElementById("modalContent").innerHTML = `
+    <h3>${u.name || ""} ${u.surname || ""}</h3>
+
+    <b>Photo:</b><br>
+    <img src="${u.photo || ''}" style="width:90px;height:90px;border-radius:50%;border:2px solid #ff1493"><br><br>
+
+    <b>Father:</b> ${u.father || ""}<br>
+    <b>Mother:</b> ${u.mother || ""}<br><br>
+
+    <b>Age:</b> ${u.age || ""}<br>
+    <b>DOB:</b> ${u.dob || ""}<br>
+    <b>Gender:</b> ${u.gender || ""}<br><br>
+
+    <b>Email:</b> ${u.email || ""}<br>
+    <b>Mobile:</b> ${u.mobile || ""}<br>
+    <b>Mobile Privacy:</b> ${u.mobilePrivacy || ""}<br><br>
+
+    <b>City:</b> ${u.city || ""}<br>
+    <b>State:</b> ${u.state || ""}<br>
+    <b>District:</b> ${u.district || ""}<br>
+    <b>Caste:</b> ${u.caste || ""}<br><br>
+
+    <b>Address:</b><br>${u.address || ""}<br><br>
+
+    <b>Choice:</b><br>${u.choice || ""}<br><br>
+    <b>Interest:</b><br>${u.interest || ""}<br><br>
+
+    <button class="btn" onclick="closeModal()">Close</button>
+  `;
+
+  document.getElementById("modal").style.display="flex";
+}
+
+function closeModal(){
+  document.getElementById("modal").style.display="none";
+}
+
+/* ---------------- DELETE USER ---------------- */
+function deleteUser(uid){
+  if(!confirm("Delete this user permanently?")) return;
+
+  db.collection("users").doc(uid).delete()
+  .then(()=> alert("User deleted!"));
+}
+
+/* ---------------- SEARCH USERS ---------------- */
+function filterUsers(){
+  let filter = search.value.toLowerCase();
+  let users = document.querySelectorAll(".user-box");
+
+  users.forEach(u=>{
+    let text = u.innerText.toLowerCase();
+    u.style.display = text.includes(filter) ? "flex" : "none";
+  });
+}
+
+/* ---------------- HELP SUPPORT ---------------- */
+function goHelp(){
+  window.location = "help-admin.html";
+}
+
+</script>
+
+</body>
+</html>
