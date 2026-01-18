@@ -3,6 +3,7 @@
 <head>
 <title>Sathi Mere - Chat</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -14,31 +15,55 @@ body { font-family: Arial; background: #ffe4f0; margin:0; padding:0; }
 .container { padding:80px 15px 70px; }
 .section-title { margin-top:15px; font-weight:bold; color:#ff1493; font-size:18px; margin-bottom:10px; }
 
-.request-card { background:white; margin-bottom:10px; padding:10px 15px; border-radius:12px; display:flex; align-items:center; box-shadow:0 0 10px #ffc0d9; position:relative; }
-.request-card img { width:50px; height:50px; border-radius:50%; object-fit:cover; border:3px solid #ff1493; margin-right:10px; }
-.name { font-weight:bold; color:#ff1493; }
-
-.btn { background:#ff1493; color:white; border:none; border-radius:8px; padding:6px 12px; margin-left:5px; cursor:pointer; }
-.btn-disabled { background:gray; }
-
-/* Online dot */
-.online-dot { position:absolute; width:12px; height:12px; border-radius:50%; background:green; bottom:5px; left:45px; border:2px solid white; }
-
-/* Unread Badge */
-.unread-badge {
-    background:#ff1493;
-    color:white;
-    padding:2px 7px;
-    border-radius:20px;
-    font-size:12px;
-    font-weight:bold;
-    margin-left:8px;
+.request-card {
+    background:white;
+    margin-bottom:10px;
+    padding:10px 15px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    box-shadow:0 0 10px #ffc0d9;
+    position:relative;
 }
 
-/* Bottom Back Button */
-#backBtn { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); background:#ff1493; color:white; border:none; border-radius:25px; padding:10px 20px; font-weight:bold; cursor:pointer; z-index:10; box-shadow:0 2px 6px rgba(0,0,0,0.2);}
+.request-card img { width:50px; height:50px; border-radius:50%; object-fit:cover; border:3px solid #ff1493; margin-right:10px; }
+
+.name { font-weight:bold; color:#ff1493; }
+.btn { background:#ff1493; color:white; border:none; border-radius:8px; padding:6px 12px; margin-left:5px; cursor:pointer; }
+
+/* Online Status Dot */
+.online-dot {
+    position:absolute;
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    background:green;
+    bottom:5px;
+    left:45px;
+    border:2px solid white;
+}
+
+/* NEW — Message Count Badge */
+.msg-count {
+    position:absolute;
+    top:5px;
+    right:10px;
+    background:#ff1493;
+    color:#fff;
+    padding:2px 7px;
+    border-radius:12px;
+    font-size:12px;
+    font-weight:bold;
+}
+
+#backBtn {
+    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    background:#ff1493; color:white; border:none; border-radius:25px;
+    padding:10px 20px; font-weight:bold; cursor:pointer; z-index:10;
+}
 </style>
 </head>
+
 <body>
 
 <div class="header">Chat Requests</div>
@@ -49,7 +74,7 @@ body { font-family: Arial; background: #ffe4f0; margin:0; padding:0; }
 <script>
 let CURRENT = null;
 
-auth.onAuthStateChanged(async user=>{
+auth.onAuthStateChanged(user=>{
     if(!user) return location.href="login.html";
     CURRENT = user;
     loadChatRequests();
@@ -63,7 +88,8 @@ async function loadChatRequests(){
 
     const incomingSnap = await db.collection("chatRequests")
         .where("to","==",CURRENT.uid)
-        .where("status","==","pending").get();
+        .where("status","==","pending")
+        .get();
 
     if(!incomingSnap.empty){
         const title = document.createElement("div");
@@ -90,6 +116,7 @@ async function loadChatRequests(){
         const toId = data.to;
 
         if(fromId===CURRENT.uid || toId===CURRENT.uid){
+
             if(!hasAccepted){
                 const title = document.createElement("div");
                 title.className = "section-title";
@@ -97,8 +124,13 @@ async function loadChatRequests(){
                 container.appendChild(title);
                 hasAccepted = true;
             }
+
             const otherId = fromId===CURRENT.uid ? toId : fromId;
-            const card = await createCard(otherId, doc.id, false, true);
+            const card = await createCard(otherId, doc.id, false);
+
+            /* ADD MESSAGE COUNT BADGE */
+            addMessageCounter(otherId, card);
+
             container.appendChild(card);
         }
     }
@@ -106,7 +138,7 @@ async function loadChatRequests(){
     if(container.innerHTML==="Loading...") container.innerHTML="No requests or chats.";
 }
 
-async function createCard(userId, requestId, isPending, showChatDetails=false){
+async function createCard(userId, requestId, isPending){
     const userDoc = await db.collection("users").doc(userId).get();
     const u = userDoc.data();
 
@@ -114,45 +146,14 @@ async function createCard(userId, requestId, isPending, showChatDetails=false){
     const chatDoc = await db.collection("chats").doc(chatID).get();
     const isOnline = chatDoc.exists ? chatDoc.data()[userId+"_online"]===true : false;
 
-    let unreadCount = 0;
-    let lastMsg = "";
-    let lastTime = "";
-    let messageCount = 0;
-
-    if(showChatDetails){
-        const msgSnap = await db.collection("messages")
-            .where("chatID","==",chatID)
-            .orderBy("time","desc")
-            .limit(1)
-            .get();
-
-        if(!msgSnap.empty){
-            const d = msgSnap.docs[0].data();
-            lastMsg = d.text || "[Photo]";
-            lastTime = formatTime(d.time);
-        }
-
-        const unreadSnap = await db.collection("messages")
-            .where("chatID","==",chatID)
-            .where("to","==",CURRENT.uid)
-            .where("seen","==",false)
-            .get();
-
-        unreadCount = unreadSnap.size;
-
-        const allSnap = await db.collection("messages")
-            .where("chatID","==",chatID)
-            .get();
-        messageCount = allSnap.size;
-    }
-
     const card = document.createElement("div");
     card.className = "request-card";
 
     const imgWrapper = document.createElement("div");
     imgWrapper.style.position = "relative";
+
     const img = document.createElement("img");
-    img.src = u.photo||'https://i.imgur.com/6VBx3io.png';
+    img.src = u.photo || 'https://i.imgur.com/6VBx3io.png';
     imgWrapper.appendChild(img);
 
     if(isOnline){
@@ -165,28 +166,10 @@ async function createCard(userId, requestId, isPending, showChatDetails=false){
 
     const infoDiv = document.createElement("div");
     infoDiv.style.flex = "1";
-    infoDiv.innerHTML = `<div class="name">${u.name} ${u.surname}</div>
-                         <div style="color:gray">${u.gender}</div>`;
-
-    if(showChatDetails){
-        infoDiv.innerHTML += `
-            <div style="font-size:13px; color:#444; margin-top:5px;">
-                ${lastMsg || "No messages yet"}
-            </div>
-            <div style="font-size:12px; color:gray;">
-                ${lastTime} • Messages: ${messageCount}
-            </div>
-        `;
-    }
-
+    infoDiv.innerHTML =
+        `<div class="name">${u.name} ${u.surname}</div>
+         <div style="color:gray">${u.gender}</div>`;
     card.appendChild(infoDiv);
-
-    if(unreadCount>0){
-        const badge = document.createElement("div");
-        badge.className = "unread-badge";
-        badge.textContent = unreadCount;
-        card.appendChild(badge);
-    }
 
     if(isPending){
         const acceptBtn = document.createElement("button");
@@ -201,6 +184,7 @@ async function createCard(userId, requestId, isPending, showChatDetails=false){
 
         card.appendChild(acceptBtn);
         card.appendChild(rejectBtn);
+
     } else {
         const openBtn = document.createElement("button");
         openBtn.className = "btn";
@@ -212,10 +196,31 @@ async function createCard(userId, requestId, isPending, showChatDetails=false){
     return card;
 }
 
-function formatTime(ts){
-    if(!ts) return "";
-    const d = new Date(ts);
-    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+/* 🔥 NEW — MESSAGE COUNTER FUNCTION */
+function addMessageCounter(otherId, cardElement){
+
+    const chatID = CURRENT.uid < otherId ? CURRENT.uid+"_"+otherId : otherId+"_"+CURRENT.uid;
+
+    db.collection("chats").doc(chatID)
+        .collection("messages")
+        .onSnapshot(snap=>{
+
+            let count = 0;
+
+            snap.forEach(m=>{
+                if(m.data().from === otherId) count++;
+            });
+
+            let badge = cardElement.querySelector(".msg-count");
+
+            if(!badge){
+                badge = document.createElement("div");
+                badge.className = "msg-count";
+                cardElement.appendChild(badge);
+            }
+
+            badge.innerText = count;
+        });
 }
 
 async function acceptRequest(requestId, fromGender, fromId){
@@ -241,6 +246,7 @@ async function acceptRequest(requestId, fromGender, fromId){
     await db.collection("chatRequests").doc(requestId).update({status:"accepted"});
 
     const chatID = myId < fromId ? myId+"_"+fromId : fromId+"_"+myId;
+
     await db.collection("chats").doc(chatID).set({
         users:[myId, fromId],
         lastMsg:"", 
@@ -260,5 +266,6 @@ function openChat(uid1, uid2){
     location.href = "chat-room.html?id="+chatID;
 }
 </script>
+
 </body>
-</html>
+    </html>
