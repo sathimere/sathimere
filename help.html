@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>User Help & Support</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #ffe6f2;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  width: 90%;
+  max-width: 450px;
+  background: white;
+  margin: 25px auto;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 0 10px #ff99cc;
+}
+
+h2 {
+  text-align: center;
+  color: #ff4da6;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 2px solid #ff80bf;
+  border-radius: 10px;
+  background: #fff5fa;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background: #ff4da6;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  margin-top: 15px;
+  font-size: 18px;
+}
+
+.card {
+  margin-top: 20px;
+  padding: 15px;
+  background: #fff0f7;
+  border-left: 4px solid #ff4da6;
+  border-radius: 10px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Help & Support</h2>
+
+  <input type="text" id="username" placeholder="Enter Your Name">
+  <textarea id="message" placeholder="Write your issue..." rows="4"></textarea>
+
+  <button onclick="sendRequest()">Submit Request</button>
+
+  <h3 style="color:#ff4da6;margin-top:25px;">Admin Reply</h3>
+  <div id="replyBox">No reply yet...</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<script>
+// Your Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyCNujpIBIvJXMk34yQF1VeuTVFi5M7vdc0",
+  authDomain: "sathimere-415fa.firebaseapp.com",
+  databaseURL: "https://sathimere-415fa-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sathimere-415fa",
+  storageBucket: "sathimere-415fa.firebasestorage.app",
+  messagingSenderId: "290492321074",
+  appId: "1:290492321074:web:05aa3d9abc2d3ab7635b2b"
+};
+
+firebase.initializeApp(firebaseConfig);
+let db = firebase.database();
+
+function sendRequest() {
+  let name = document.getElementById("username").value;
+  let msg = document.getElementById("message").value;
+
+  if (name === "" || msg === "") {
+    alert("Please fill all fields");
+    return;
+  }
+
+  let uniqueID = Date.now();
+
+  db.ref("HelpRequests/" + uniqueID).set({
+    username: name,
+    message: msg,
+    reply: "Waiting for admin..."
+  });
+
+  alert("Request submitted successfully!");
+
+  document.getElementById("message").value = "";
+}
+
+// Auto-load latest reply
+db.ref("HelpRequests").on("value", function(snapshot) {
+  let data = snapshot.val();
+  let latest = Object.keys(data || {}).pop();
+
+  if (!latest) return;
+
+  let reply = data[latest].reply;
+  document.getElementById("replyBox").innerHTML = "<div class='card'>" + reply + "</div>";
+});
+</script>
+
+</body>
+</html>
